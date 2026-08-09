@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import os
 import pathlib
+import shlex
 from dataclasses import dataclass
 from typing import Any
 
@@ -30,19 +32,91 @@ class GitHub:
     def __init__(self, config: GitHubConfig, cwd: pathlib.Path):
         self.config = config
         self.cwd = cwd
+        self._cached_token: str | None = None
+
+    def _configured_token(self) -> str:
+        if self._cached_token is not None:
+            return self._cached_token
+        if self.config.token_env:
+            token = os.environ.get(self.config.token_env, "").strip()
+            if not token:
+                raise RuntimeError(
+                    f"GitHub token environment variable {self.config.token_env!r} is unavailable"
+                )
+            self._cached_token = token
+            return token
+        if self.config.auth_user:
+            result = run(
+                [
+                    self.config.gh_executable, "auth", "token", "--hostname", "github.com",
+                    "--user", self.config.auth_user,
+                ],
+                cwd=self.cwd,
+                timeout=60,
+                env=self._base_env(),
+            )
+            self._cached_token = result.stdout.strip()
+            return self._cached_token
+        return ""
+
+    def _base_env(self) -> dict[str, str]:
+        env = os.environ.copy()
+        if self.config.auth_config_dir:
+            env["GH_CONFIG_DIR"] = str(self.config.auth_config_dir)
+        env["GH_PROMPT_DISABLED"] = "1"
+        return env
+
+    def command_env(self) -> dict[str, str]:
+        env = self._base_env()
+        token = self._configured_token()
+        if token:
+            env["GH_TOKEN"] = token
+        return env
+
+    def git_argv(self, *args: str) -> list[str]:
+        helper = f"!{shlex.quote(self.config.gh_executable)} auth git-credential"
+        return [
+            "git", "-c", "credential.helper=", "-c", f"credential.helper={helper}", *args,
+        ]
 
     def _gh(self, *args: str, timeout: int = 120, check: bool = True) -> str:
         result = run(
             [self.config.gh_executable, *args, "--repo", self.config.repository],
-            cwd=self.cwd, timeout=timeout, check=check,
+            cwd=self.cwd, timeout=timeout, check=check, env=self.command_env(),
         )
         return result.stdout.strip()
 
     def auth_status(self) -> None:
-        run([self.config.gh_executable, "auth", "status"], cwd=self.cwd, timeout=60)
+        if self.config.auth_user or self.config.token_env:
+            result = run(
+                [self.config.gh_executable, "api", "user", "--jq", ".login"],
+                cwd=self.cwd,
+                timeout=60,
+                env=self.command_env(),
+            )
+            login = result.stdout.strip()
+            if self.config.auth_user and login.lower() != self.config.auth_user.lower():
+                raise RuntimeError(
+                    f"GitHub token resolved to {login!r}, expected {self.config.auth_user!r}"
+                )
+            return
+        run(
+            [self.config.gh_executable, "auth", "status"],
+            cwd=self.cwd,
+            timeout=60,
+            env=self._base_env(),
+        )
 
     def auth_token(self) -> str:
-        result = run([self.config.gh_executable, "auth", "token"], cwd=self.cwd, timeout=60)
+        token = self._configured_token()
+        if token:
+            return token
+        result = run(
+            [self.config.gh_executable, "auth", "token"],
+            cwd=self.cwd,
+            timeout=60,
+            env=self._base_env(),
+        )
         return result.stdout.strip()
 
     def list_ready(self) -> list[Issue]:

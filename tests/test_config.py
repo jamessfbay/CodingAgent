@@ -9,6 +9,8 @@ def test_load_example_config():
     path = Path(__file__).parents[1] / "config.example.toml"
     settings = load_settings(path)
     assert settings.github.repository == "unsungb/base-all"
+    assert settings.github.auth_user == "unsungb"
+    assert settings.github.auth_config_dir == Path(__file__).parents[1] / "state/github-auth/base-all"
     assert settings.repository.base_branch == "main"
     assert settings.automation.agent_name == "CodingAgent"
     assert settings.automation.agent_icon == "🤖"
@@ -54,12 +56,18 @@ worktree_root = "/tmp/two-worktrees"
 [repositories.github]
 ready_label = "two:ready"
 max_issues_per_poll = 2
+auth_user = "repo-two-bot"
+auth_config_dir = "state/github-auth/repo-two"
 """)
     settings = load_settings(config)
     assert [item.github.repository for item in settings.repositories] == ["org/one", "org/two"]
     assert settings.repositories[0].github.ready_label == "ready"
     assert settings.repositories[1].github.ready_label == "two:ready"
     assert settings.repositories[1].github.max_issues_per_poll == 2
+    assert settings.repositories[1].github.auth_user == "repo-two-bot"
+    assert settings.repositories[1].github.auth_config_dir == (
+        tmp_path / "state/github-auth/repo-two"
+    )
     assert settings.repositories[0].validation[0].name == "one-tests"
     assert settings.repositories[1].validation == ()
     assert settings.scheduler.poll_seconds == 15

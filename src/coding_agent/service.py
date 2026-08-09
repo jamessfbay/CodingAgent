@@ -208,12 +208,13 @@ class RepositoryWorker:
             ["git", "remote", "get-url", "origin"], cwd=self.target.repository.path,
         ).stdout.strip()
         run(
-            [
-                "git", "clone", "--branch", self.target.repository.base_branch,
+            self.github.git_argv(
+                "clone", "--branch", self.target.repository.base_branch,
                 "--single-branch", remote, str(path),
-            ],
+            ),
             cwd=path.parent,
             timeout=600,
+            env=self.github.command_env(),
         )
 
     @staticmethod
@@ -287,7 +288,10 @@ class RepositoryWorker:
         ).stdout.strip()
         if dirty:
             raise AgentError(f"Production checkout has tracked local changes: {path}")
-        run(["git", "fetch", "origin", repo.base_branch], cwd=path, timeout=300)
+        run(
+            self.github.git_argv("fetch", "origin", repo.base_branch),
+            cwd=path, timeout=300, env=self.github.command_env(),
+        )
         run(["git", "merge", "--ff-only", f"origin/{repo.base_branch}"], cwd=path, timeout=300)
         return run(["git", "rev-parse", "HEAD"], cwd=path).stdout.strip()
 
@@ -435,9 +439,13 @@ class RepositoryWorker:
         repo.worktree_root.mkdir(parents=True, exist_ok=True)
         if worktree.exists():
             raise AgentError(f"Worktree path already exists: {worktree}")
-        run(["git", "fetch", "origin", repo.base_branch], cwd=repo.path, timeout=300)
+        run(
+            self.github.git_argv("fetch", "origin", repo.base_branch),
+            cwd=repo.path, timeout=300, env=self.github.command_env(),
+        )
         remote_branch = run(
-            ["git", "ls-remote", "--heads", "origin", branch], cwd=repo.path, check=False,
+            self.github.git_argv("ls-remote", "--heads", "origin", branch),
+            cwd=repo.path, check=False, env=self.github.command_env(),
         ).stdout.strip()
         if remote_branch:
             raise AgentError(f"Remote branch already exists: {branch}")
@@ -555,7 +563,10 @@ Implement the smallest correct fix. Inspect the repository, add or update regres
         run(["git", "add", "--all"], cwd=worktree)
         run(["git", "diff", "--cached", "--check"], cwd=worktree)
         run(["git", "commit", "-m", f"fix: resolve issue #{issue.number}"], cwd=worktree)
-        run(["git", "push", "--set-upstream", "origin", branch], cwd=worktree, timeout=300)
+        run(
+            self.github.git_argv("push", "--set-upstream", "origin", branch),
+            cwd=worktree, timeout=300, env=self.github.command_env(),
+        )
 
     def _pr_body(self, issue: Issue, validation: tuple[ValidationResult, ...], codex_output: str) -> str:
         checks = "\n".join(f"- [x] `{item.name}`" for item in validation) or "- [ ] No local validation configured"
