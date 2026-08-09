@@ -83,6 +83,55 @@ argv = ["npm", "test"]
 
 Each repository must have a unique `path` and `worktree_root`, and its `origin` must match the configured `owner/repository`. Issues within one repository run serially to avoid Git locks; different repositories run concurrently up to `scheduler.max_parallel_repositories`. The old single-repository `[repository]` configuration remains supported.
 
+### Per-repository GitHub authentication
+
+Each repository can select a stored GitHub CLI account without changing the
+globally active account:
+
+```toml
+[[repositories]]
+repository = "unsungb/base-all"
+path = "/var/www/workspace/base-all"
+
+[repositories.github]
+auth_user = "unsungb"
+auth_config_dir = "state/github-auth/base-all"
+```
+
+Authenticate or verify a repository on a headless server with the interactive
+project selector:
+
+```bash
+./auth.sh
+```
+
+It can also be selected directly by number or repository name:
+
+```bash
+./auth.sh --list
+./auth.sh unsungb/base-all
+./auth.sh --force unsungb/base-all
+```
+
+The script displays a GitHub device code and URL. Open the URL on another device,
+sign in with the configured `auth_user`, and enter the code. Credentials are saved
+under that repository's `auth_config_dir`, which should remain inside the ignored
+`state/` directory. `--force` starts login again when a valid credential already
+exists.
+
+For service deployments, a dedicated token environment variable can be used
+instead. Store only its variable name in TOML, never the token value:
+
+```toml
+[repositories.github]
+token_env = "BASE_ALL_GITHUB_TOKEN"
+```
+
+The selected credential and GitHub CLI configuration are isolated per worker and
+are used for GitHub API calls,
+Issue images, and authenticated Git fetch/push/clone operations. This remains safe
+when repositories run concurrently.
+
 To update a local production checkout after its PR is merged, set
 `production_path` on that repository:
 

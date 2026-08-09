@@ -10,6 +10,9 @@ from typing import Any
 @dataclasses.dataclass(frozen=True)
 class GitHubConfig:
     repository: str
+    auth_user: str = ""
+    token_env: str = ""
+    auth_config_dir: pathlib.Path | None = None
     ready_label: str = "agent:ready"
     working_label: str = "agent:working"
     pr_label: str = "agent:pr-open"
@@ -116,10 +119,19 @@ def _validation_commands(raw: list[dict[str, Any]]) -> tuple[ValidationCommand, 
     )
 
 
-def _github_config(raw: dict[str, Any], defaults: dict[str, Any]) -> GitHubConfig:
+def _github_config(
+    raw: dict[str, Any], defaults: dict[str, Any], config_root: pathlib.Path,
+) -> GitHubConfig:
     merged = {**defaults, **raw}
+    auth_config_dir = str(merged.get("auth_config_dir", "")).strip()
+    auth_config_path = pathlib.Path(auth_config_dir).expanduser() if auth_config_dir else None
+    if auth_config_path and not auth_config_path.is_absolute():
+        auth_config_path = config_root / auth_config_path
     return GitHubConfig(
         repository=str(_required(merged, "repository", "repositories")),
+        auth_user=str(merged.get("auth_user", "")).strip(),
+        token_env=str(merged.get("token_env", "")).strip(),
+        auth_config_dir=auth_config_path.resolve() if auth_config_path else None,
         ready_label=str(merged.get("ready_label", "agent:ready")),
         working_label=str(merged.get("working_label", "agent:working")),
         pr_label=str(merged.get("pr_label", "agent:pr-open")),
@@ -187,7 +199,7 @@ def load_settings(path: str | os.PathLike[str]) -> Settings:
             github_overrides["repository"] = item.pop("repository", github_overrides.get("repository", ""))
             validation_raw = item.pop("validation", [])
             targets.append(RepositoryTarget(
-                github=_github_config(github_overrides, github_raw),
+                github=_github_config(github_overrides, github_raw, config_path.parent),
                 repository=_repository_config(item),
                 validation=_validation_commands(validation_raw),
             ))
@@ -195,7 +207,7 @@ def load_settings(path: str | os.PathLike[str]) -> Settings:
         repo_raw = raw.get("repository", {})
         validation_raw = raw.get("validation", {}).get("commands", [])
         targets.append(RepositoryTarget(
-            github=_github_config(github_raw, {}),
+            github=_github_config(github_raw, {}, config_path.parent),
             repository=_repository_config(repo_raw),
             validation=_validation_commands(validation_raw),
         ))

@@ -153,7 +153,7 @@ production_path = "{production_path}"
 
     monkeypatch.setattr("coding_agent.service.run", fake_run)
     assert worker._update_production_checkout(production_path) == "abc123"
-    assert ("git", "fetch", "origin", "main") in calls
+    assert any(call[-3:] == ("fetch", "origin", "main") for call in calls)
     assert ("git", "merge", "--ff-only", "origin/main") in calls
 
 

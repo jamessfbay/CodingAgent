@@ -23,6 +23,14 @@ worktree_root = "/tmp/base-all-coding-agent"
 git_user_name = "JOX Coding Agent"
 git_user_email = "coding-agent@jox.fun"
 
+[repositories.github]
+# Use a stored gh account without changing the globally active account.
+auth_user = "unsungb"
+# Keep this repository's credentials isolated from every other repository.
+auth_config_dir = "state/github-auth/base-all"
+# Alternatively, load a token from the named environment variable.
+# token_env = "BASE_ALL_GITHUB_TOKEN"
+
 [codex]
 executable = "codex"
 model = ""

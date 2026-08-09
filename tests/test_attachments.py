@@ -1,4 +1,6 @@
 import urllib.request
+from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -8,6 +10,8 @@ from coding_agent.attachments import (
     download_issue_images,
     extract_issue_image_urls,
 )
+from coding_agent.config import GitHubConfig
+from coding_agent.github import GitHub
 
 
 def test_extracts_github_images_from_body_and_comments():
@@ -124,3 +128,40 @@ def test_redirect_rejects_unknown_host_and_strips_auth_cross_host(monkeypatch):
             {},
             "https://attacker.example/image.png",
         )
+
+
+def test_github_auth_user_is_resolved_without_switching_global_account(monkeypatch):
+    calls = []
+
+    def fake_run(argv, **kwargs):
+        calls.append((tuple(argv), kwargs))
+        return SimpleNamespace(stdout="repo-token\n")
+
+    monkeypatch.setattr("coding_agent.github.run", fake_run)
+    github = GitHub(
+        GitHubConfig(repository="org/repo", auth_user="repo-bot"),
+        Path("/srv/repo"),
+    )
+
+    env = github.command_env()
+    assert env["GH_TOKEN"] == "repo-token"
+    assert calls[0][0][-2:] == ("--user", "repo-bot")
+    assert github.git_argv("push", "origin", "branch")[-3:] == ["push", "origin", "branch"]
+
+
+def test_github_token_can_come_from_project_environment_variable(monkeypatch):
+    monkeypatch.setenv("REPO_GITHUB_TOKEN", "environment-token")
+    github = GitHub(
+        GitHubConfig(repository="org/repo", token_env="REPO_GITHUB_TOKEN"),
+        Path("/srv/repo"),
+    )
+    assert github.auth_token() == "environment-token"
+
+
+def test_github_uses_isolated_project_config_directory(tmp_path):
+    auth_dir = tmp_path / "github-auth"
+    github = GitHub(
+        GitHubConfig(repository="org/repo", auth_config_dir=auth_dir),
+        Path("/srv/repo"),
+    )
+    assert github.command_env()["GH_CONFIG_DIR"] == str(auth_dir)
