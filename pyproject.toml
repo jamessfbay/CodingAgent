@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jox-coding-agent"
+version = "0.1.0"
+description = "Issue-to-PR orchestration for Codex and GitHub"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+coding-agent = "coding_agent.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

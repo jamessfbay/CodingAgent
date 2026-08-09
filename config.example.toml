@@ -1,0 +1,88 @@
+[github]
+ready_label = "agent:ready"
+working_label = "agent:working"
+pr_label = "agent:pr-open"
+failed_label = "agent:failed"
+max_issues_per_poll = 1
+gh_executable = "gh"
+
+[scheduler]
+poll_seconds = 60
+max_parallel_repositories = 2
+
+[[repositories]]
+repository = "unsungb/base-all"
+path = "/var/www/workspace"
+base_branch = "main"
+branch_prefix = "codex/issue-"
+worktree_root = "/tmp/base-all-coding-agent"
+# Optional: after a PR is merged, fast-forward this checkout from origin/main.
+# production_path = "/srv/jox-production"
+# Optional: use a separate Git checkout and copy only tracked files to production_path.
+# production_checkout_path = "/srv/jox-production-checkout"
+git_user_name = "JOX Coding Agent"
+git_user_email = "coding-agent@jox.fun"
+
+[codex]
+executable = "codex"
+model = ""
+timeout_seconds = 3600
+sandbox = "workspace-write"
+approval_policy = "never"
+
+[automation]
+agent_name = "CodingAgent"
+agent_icon = "🤖"
+create_draft_pr = false
+enable_auto_merge = false
+merge_method = "squash"
+delete_branch_after_merge = true
+allowed_issue_authors = []
+max_issue_images = 4
+max_issue_image_bytes = 15000000
+protected_paths = [
+  ".github/workflows/*",
+  "CodingAgent/*",
+  ".env",
+  ".env.*",
+  "*.pem",
+  "*.key",
+  "exportApiEnv.sh",
+  "exportFrontendEnv.sh",
+  "contracts/export_env.sh",
+]
+
+# Commands are argv arrays: no shell expansion is performed.
+[[repositories.validation]]
+name = "api-tests"
+argv = ["/usr/bin/env", "-C", "api", "/var/www/workspace/CodingAgent/.venv/bin/python", "-m", "pytest", "tests", "-q"]
+timeout_seconds = 1800
+
+[[repositories.validation]]
+name = "frontend-install"
+argv = ["npm", "ci", "--prefix", "frontend"]
+timeout_seconds = 1200
+
+[[repositories.validation]]
+name = "frontend-unit-tests"
+argv = ["node", "--test", "--experimental-strip-types", "frontend/tests/*.test.ts"]
+timeout_seconds = 1200
+expand_globs = true
+
+# Add another repository by repeating this block. Every repository must have a
+# unique local checkout and worktree_root. Validation commands belong to the
+# [[repositories]] entry immediately above them.
+#
+# [[repositories]]
+# repository = "your-org/another-repo"
+# path = "/var/www/another-repo"
+# base_branch = "main"
+# branch_prefix = "codex/issue-"
+# worktree_root = "/tmp/another-repo-coding-agent"
+# git_user_name = "Coding Agent"
+# git_user_email = "coding-agent@example.com"
+#
+# [[repositories.validation]]
+# name = "tests"
+# argv = ["/var/www/another-repo/.venv/bin/python", "-m", "pytest", "-q"]
+# timeout_seconds = 1200

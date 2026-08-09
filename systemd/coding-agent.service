@@ -1,0 +1,21 @@
+[Unit]
+Description=JOX GitHub CodingAgent
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/var/www/workspace/CodingAgent
+Environment=CODING_AGENT_CONFIG=/var/www/workspace/CodingAgent/config.toml
+Environment=PATH=/var/www/workspace/CodingAgent/.venv/bin:/home/ubuntu/.nvm/versions/node/v23.11.1/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/var/www/workspace/CodingAgent/.venv/bin/coding-agent watch
+Restart=on-failure
+RestartSec=15
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/var/www/workspace /tmp
+
+[Install]
+WantedBy=multi-user.target
