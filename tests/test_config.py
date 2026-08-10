@@ -97,10 +97,17 @@ repository = "org/repo"
 path = "/srv/repo"
 production_path = "/srv/production"
 production_checkout_path = "/srv/production-checkout"
+
+[[repositories.production_commands]]
+name = "build"
+argv = ["npm", "run", "build"]
+timeout_seconds = 600
 ''')
     settings = load_settings(config)
     assert settings.repository.production_path == Path("/srv/production")
     assert settings.repository.production_checkout_path == Path("/srv/production-checkout")
+    assert settings.repositories[0].production_commands[0].name == "build"
+    assert settings.repositories[0].production_commands[0].argv == ("npm", "run", "build")
 
 
 def test_repositories_require_unique_worktree_roots(tmp_path):

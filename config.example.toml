@@ -23,6 +23,20 @@ worktree_root = "/tmp/base-all-coding-agent"
 git_user_name = "JOX Coding Agent"
 git_user_email = "coding-agent@jox.fun"
 
+# Optional commands run in production_path after the merged revision is copied.
+# They run in order and are skipped when no entries are configured. Use argv
+# arrays rather than shell strings, and keep commands idempotent because a
+# failed deployment is retried on the next polling cycle.
+# [[repositories.production_commands]]
+# name = "build-frontend"
+# argv = ["npm", "run", "build"]
+# timeout_seconds = 1800
+#
+# [[repositories.production_commands]]
+# name = "restart-service"
+# argv = ["systemctl", "--user", "restart", "my-app.service"]
+# timeout_seconds = 120
+
 [repositories.github]
 # Use a stored gh account without changing the globally active account.
 auth_user = "unsungb"

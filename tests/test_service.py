@@ -89,6 +89,40 @@ production_path = "{production_path}"
     )]
 
 
+def test_production_commands_run_after_sync_in_order(monkeypatch, tmp_path):
+    production_path = tmp_path / "production"
+    production_path.mkdir()
+    config = tmp_path / "config.toml"
+    config.write_text(f'''
+[[repositories]]
+repository = "org/repo"
+path = "/srv/repo"
+production_path = "{production_path}"
+
+[[repositories.production_commands]]
+name = "build"
+argv = ["npm", "run", "build"]
+
+[[repositories.production_commands]]
+name = "restart"
+argv = ["systemctl", "restart", "example.service"]
+''')
+    worker = CodingAgentService(load_settings(config)).workers[0]
+    calls = []
+
+    def fake_run(argv, **kwargs):
+        calls.append((tuple(argv), kwargs["cwd"]))
+        return SimpleNamespace(stdout="")
+
+    monkeypatch.setattr("coding_agent.service.run", fake_run)
+
+    assert worker._run_production_commands(production_path) == ("build", "restart")
+    assert calls == [
+        (("npm", "run", "build"), production_path),
+        (("systemctl", "restart", "example.service"), production_path),
+    ]
+
+
 def test_step_message_has_consistent_heading():
     worker = CodingAgentService(settings()).workers[0]
     assert worker.step_message("Validate changes", "Running tests.") == (
