@@ -12,7 +12,7 @@ max_parallel_repositories = 2
 
 [[repositories]]
 repository = "unsungb/base-all"
-path = "/var/www/workspace"
+path = "state/repositories/unsungb/base-all"
 base_branch = "main"
 branch_prefix = "codex/issue-"
 worktree_root = "/tmp/base-all-coding-agent"
@@ -83,7 +83,7 @@ expand_globs = true
 #
 # [[repositories]]
 # repository = "your-org/another-repo"
-# path = "/var/www/another-repo"
+# path = "state/repositories/your-org/another-repo"
 # base_branch = "main"
 # branch_prefix = "codex/issue-"
 # worktree_root = "/tmp/another-repo-coding-agent"
