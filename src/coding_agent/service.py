@@ -185,18 +185,43 @@ class RepositoryWorker:
                 self._copy_tracked_files(
                     checkout_path, production_path, previous_commit, commit,
                 )
+            production_commands = self._run_production_commands(production_path)
             self.state.finish(run_id, "production-updated", f"{pr_url}\n{commit}")
+            command_note = (
+                " Post-sync commands completed: " + ", ".join(production_commands) + "."
+                if production_commands else ""
+            )
             self.github.comment(
                 issue_number,
                 self.step_message(
                     "Synchronize production",
                     f"🚀 Production files synchronized to `{commit}` from "
-                    f"`origin/{self.target.repository.base_branch}`.",
+                    f"`origin/{self.target.repository.base_branch}`.{command_note}",
                 ),
             )
             self.log_step(issue_number, "Synchronize production", f"completed at {commit}")
             updated += 1
         return updated
+
+    def _run_production_commands(self, production_path: pathlib.Path) -> tuple[str, ...]:
+        completed: list[str] = []
+        for command in self.target.production_commands:
+            argv = (
+                expand_argv_globs(command.argv, production_path)
+                if command.expand_globs else list(command.argv)
+            )
+            if len(argv) < 2 and command.expand_globs:
+                raise AgentError(
+                    f"Production command glob did not match files: {command.name}"
+                )
+            LOG.info(
+                "%s production command: %s",
+                self.target.github.repository,
+                command.name,
+            )
+            run(argv, cwd=production_path, timeout=command.timeout_seconds)
+            completed.append(command.name)
+        return tuple(completed)
 
     def _ensure_production_checkout(self, path: pathlib.Path) -> None:
         if (path / ".git").exists():

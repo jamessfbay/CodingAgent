@@ -70,6 +70,7 @@ class RepositoryTarget:
     github: GitHubConfig
     repository: RepositoryConfig
     validation: tuple[ValidationCommand, ...]
+    production_commands: tuple[ValidationCommand, ...] = ()
 
 
 @dataclasses.dataclass(frozen=True)
@@ -198,18 +199,22 @@ def load_settings(path: str | os.PathLike[str]) -> Settings:
             github_overrides = dict(item.pop("github", {}))
             github_overrides["repository"] = item.pop("repository", github_overrides.get("repository", ""))
             validation_raw = item.pop("validation", [])
+            production_commands_raw = item.pop("production_commands", [])
             targets.append(RepositoryTarget(
                 github=_github_config(github_overrides, github_raw, config_path.parent),
                 repository=_repository_config(item),
                 validation=_validation_commands(validation_raw),
+                production_commands=_validation_commands(production_commands_raw),
             ))
     else:
         repo_raw = raw.get("repository", {})
         validation_raw = raw.get("validation", {}).get("commands", [])
+        production_commands_raw = raw.get("production", {}).get("commands", [])
         targets.append(RepositoryTarget(
             github=_github_config(github_raw, {}, config_path.parent),
             repository=_repository_config(repo_raw),
             validation=_validation_commands(validation_raw),
+            production_commands=_validation_commands(production_commands_raw),
         ))
 
     names = [target.github.repository for target in targets]

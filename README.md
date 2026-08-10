@@ -160,6 +160,29 @@ checkout is created automatically when needed, then updated with `git fetch` and
 commits are removed from production. Open PRs remain pending, and closed unmerged
 PRs are never synchronized.
 
+Optional post-sync commands can run in `production_path` after the merged files
+are copied. Commands run in order as argv arrays; no shell expansion is applied.
+If no commands are configured, this step is skipped. A failure prevents the run
+from being marked `production-updated`, so commands should be idempotent because
+the next polling cycle retries them:
+
+```toml
+[[repositories.production_commands]]
+name = "build-frontend"
+argv = ["npm", "run", "build"]
+timeout_seconds = 1800
+
+[[repositories.production_commands]]
+name = "restart-service"
+argv = ["systemctl", "--user", "restart", "my-app.service"]
+timeout_seconds = 120
+```
+
+The packaged systemd unit uses `NoNewPrivileges=true`, so these commands cannot
+use `sudo` to become root. Use services owned by the CodingAgent user, or expose
+a separately reviewed and tightly scoped deployment mechanism when privileged
+operations are required.
+
 ## Initialize and run
 
 ```bash
