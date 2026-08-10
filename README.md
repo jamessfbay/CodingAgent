@@ -17,14 +17,7 @@
 
 ## Install
 
-Requirements: Python 3.11+, Git, GitHub CLI (`gh`), and Codex CLI. Authenticate the service user once:
-
-```bash
-gh auth login
-codex login
-```
-
-Create the environment without external runtime packages:
+Requirements: Python 3.11+, Git, GitHub CLI (`gh`), and Codex CLI. Create the environment without external runtime packages:
 
 ```bash
 cd /var/www/workspace/CodingAgent
@@ -34,6 +27,12 @@ cp config.example.toml config.toml
 ```
 
 Edit `config.toml`. If `gh` is not on `PATH`, set `github.gh_executable` to its absolute path. Keep `enable_auto_merge = false` until branch protection and CI are configured.
+
+Then authenticate the service user once with the bundled headless login helper:
+
+```bash
+./auth.sh
+```
 
 The name and icon used in Issue comments and PR summaries can be customized under
 `[automation]` (set `agent_icon = ""` to omit the icon):
@@ -99,7 +98,8 @@ auth_config_dir = "state/github-auth/base-all"
 ```
 
 Authenticate or verify a repository on a headless server with the interactive
-project selector:
+project selector. The helper first verifies that repository's isolated GitHub
+credentials, then verifies the shared Codex CLI credentials:
 
 ```bash
 ./auth.sh
@@ -113,11 +113,18 @@ It can also be selected directly by number or repository name:
 ./auth.sh --force unsungb/base-all
 ```
 
-The script displays a GitHub device code and URL. Open the URL on another device,
-sign in with the configured `auth_user`, and enter the code. Credentials are saved
-under that repository's `auth_config_dir`, which should remain inside the ignored
-`state/` directory. `--force` starts login again when a valid credential already
-exists.
+After GitHub authentication, the helper clones a missing repository into its
+configured `path`. The recommended layout is
+`CodingAgent/state/repositories/<owner>/<repository>`; `state/` is ignored by Git.
+An existing Git checkout is retained, while a non-empty non-Git directory is
+rejected to avoid overwriting files.
+
+When authentication is needed, the script displays the GitHub or Codex device URL
+and one-time code. Open the URL on another device and complete the login. GitHub
+credentials are saved under that repository's `auth_config_dir`, which should
+remain inside the ignored `state/` directory. Codex credentials use the Codex
+CLI's normal credential store. `--force` starts both login flows again when valid
+credentials already exist.
 
 For service deployments, a dedicated token environment variable can be used
 instead. Store only its variable name in TOML, never the token value:
