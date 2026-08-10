@@ -103,6 +103,28 @@ def test_step_log_includes_repository_issue_and_step(caplog):
     assert "unsungb/base-all issue #12 — Step: Validate changes — running api-tests" in caplog.text
 
 
+def test_doctor_reports_blocked_codex_user_namespace(monkeypatch):
+    service = CodingAgentService(settings())
+    real_exists = Path.exists
+    real_read_text = Path.read_text
+
+    def fake_exists(path):
+        if str(path) == "/proc/sys/kernel/apparmor_restrict_unprivileged_userns":
+            return True
+        return real_exists(path)
+
+    def fake_read_text(path, *args, **kwargs):
+        if str(path) == "/proc/sys/kernel/apparmor_restrict_unprivileged_userns":
+            return "1\n"
+        return real_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "exists", fake_exists)
+    monkeypatch.setattr(Path, "read_text", fake_read_text)
+    monkeypatch.setattr(service.workers[0], "doctor", lambda: [])
+
+    assert any("ExecStartPre" in failure for failure in service.doctor())
+
+
 def test_production_update_requires_clean_expected_branch(monkeypatch, tmp_path):
     production_path = tmp_path / "production"
     (production_path / ".git").mkdir(parents=True)
