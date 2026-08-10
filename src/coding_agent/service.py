@@ -332,7 +332,17 @@ class RepositoryWorker:
             codex_output = self._run_codex(issue, worktree)
             changed = self._changed_paths(worktree)
             if not changed:
-                raise AgentError("Codex completed without changing any tracked or untracked files")
+                codex_detail = tail(codex_output.strip(), 3000)
+                message = "Codex completed without changing any tracked or untracked files"
+                if codex_detail:
+                    message += f"\n\nCodex output (last 3000 characters):\n{codex_detail}"
+                LOG.warning(
+                    "%s issue #%s - Codex produced no changes%s",
+                    self.target.github.repository,
+                    issue.number,
+                    f": {codex_detail}" if codex_detail else "",
+                )
+                raise AgentError(message)
             self._check_protected_paths(changed)
             current_step = "Validate changes"
             self.log_step(issue.number, current_step)
@@ -625,6 +635,22 @@ class CodingAgentService:
 
     def doctor(self) -> list[str]:
         failures: list[str] = []
+        userns_restriction = pathlib.Path(
+            "/proc/sys/kernel/apparmor_restrict_unprivileged_userns"
+        )
+        if self.settings.codex.sandbox == "workspace-write" and userns_restriction.exists():
+            try:
+                restricted = userns_restriction.read_text().strip()
+            except OSError as exc:
+                failures.append(f"Cannot read Codex sandbox prerequisite: {exc}")
+            else:
+                if restricted != "0":
+                    failures.append(
+                        "Codex workspace-write sandbox is blocked by "
+                        "kernel.apparmor_restrict_unprivileged_userns; install and start "
+                        "systemd/coding-agent.service so its privileged ExecStartPre can "
+                        "apply the required setting"
+                    )
         for worker in self.workers:
             failures.extend(
                 f"{worker.target.github.repository}: {failure}"

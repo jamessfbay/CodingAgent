@@ -9,6 +9,10 @@ User=ubuntu
 WorkingDirectory=/var/www/workspace/CodingAgent
 Environment=CODING_AGENT_CONFIG=/var/www/workspace/CodingAgent/config.toml
 Environment=PATH=/var/www/workspace/CodingAgent/.venv/bin:/home/ubuntu/.nvm/versions/node/v23.11.1/bin:/usr/local/bin:/usr/bin:/bin
+# Ubuntu's AppArmor userns restriction strips the network capability that
+# Codex's workspace-write bwrap sandbox needs to initialize loopback. The `+`
+# prefix runs only this prerequisite as root; the agent itself remains `ubuntu`.
+ExecStartPre=+/usr/sbin/sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 ExecStart=/var/www/workspace/CodingAgent/.venv/bin/coding-agent watch
 Restart=on-failure
 RestartSec=15

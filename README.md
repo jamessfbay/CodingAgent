@@ -185,6 +185,15 @@ sudo systemctl enable --now coding-agent
 sudo journalctl -u coding-agent -f
 ```
 
+On Ubuntu systems that enable AppArmor's unprivileged user-namespace
+restriction, the unit's privileged `ExecStartPre` automatically sets
+`kernel.apparmor_restrict_unprivileged_userns=0` before the unprivileged agent
+starts. This is required for the Codex `workspace-write` bubblewrap sandbox to
+initialize its isolated loopback interface. `doctor` verifies the setting and
+stops startup with an actionable error if the prerequisite was not applied.
+This kernel setting affects all users, so run CodingAgent on a dedicated host
+or VM rather than a shared multi-user server.
+
 The service uses an isolated worktree for each repository and stores repository-qualified run metadata in `state/runs.sqlite3`. Existing single-repository databases are upgraded automatically. Full Codex JSONL output stays in the process journal; configure normal journal retention and access controls.
 
 ## GitHub protection
