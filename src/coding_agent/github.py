@@ -28,6 +28,29 @@ class PullRequestStatus:
     base_ref_name: str
 
 
+@dataclass(frozen=True)
+class PullRequest:
+    number: int
+    title: str
+    body: str
+    url: str
+    author: str
+    base_ref_name: str
+    head_ref_name: str
+    head_ref_oid: str
+
+
+@dataclass(frozen=True)
+class WorkflowRun:
+    database_id: int
+    name: str
+    display_title: str
+    conclusion: str
+    status: str
+    url: str
+    head_sha: str
+
+
 class GitHub:
     def __init__(self, config: GitHubConfig, cwd: pathlib.Path):
         self.config = config
@@ -170,6 +193,61 @@ class GitHub:
         if draft:
             args.append("--draft")
         return self._gh(*args, timeout=180).splitlines()[-1]
+
+    def get_pr(self, number: int) -> PullRequest:
+        output = self._gh(
+            "pr", "view", str(number), "--json",
+            "number,title,body,url,author,baseRefName,headRefName,headRefOid",
+        )
+        item = json.loads(output)
+        return PullRequest(
+            number=int(item["number"]),
+            title=str(item.get("title", "")),
+            body=str(item.get("body", "")),
+            url=str(item.get("url", "")),
+            author=str((item.get("author") or {}).get("login", "unknown")),
+            base_ref_name=str(item.get("baseRefName", "")),
+            head_ref_name=str(item.get("headRefName", "")),
+            head_ref_oid=str(item.get("headRefOid", "")),
+        )
+
+    def pr_diff(self, number: int) -> str:
+        return self._gh("pr", "diff", str(number), timeout=180)
+
+    def comment_pr(self, number: int, body: str) -> None:
+        self._gh("pr", "comment", str(number), "--body", body[:60000])
+
+    @staticmethod
+    def _parse_workflow_run(item: dict[str, Any]) -> WorkflowRun:
+        return WorkflowRun(
+            database_id=int(item["databaseId"]),
+            name=str(item.get("name", "")),
+            display_title=str(item.get("displayTitle", "")),
+            conclusion=str(item.get("conclusion", "")),
+            status=str(item.get("status", "")),
+            url=str(item.get("url", "")),
+            head_sha=str(item.get("headSha", "")),
+        )
+
+    def get_workflow_run(self, run_id: int) -> WorkflowRun:
+        output = self._gh(
+            "run", "view", str(run_id), "--json",
+            "databaseId,name,displayTitle,conclusion,status,url,headSha",
+        )
+        return self._parse_workflow_run(json.loads(output))
+
+    def latest_failed_run(self, head_sha: str) -> WorkflowRun:
+        output = self._gh(
+            "run", "list", "--commit", head_sha, "--status", "failure", "--limit", "1",
+            "--json", "databaseId,name,displayTitle,conclusion,status,url,headSha",
+        )
+        items = json.loads(output or "[]")
+        if not items:
+            raise RuntimeError(f"No failed workflow run found for commit {head_sha}")
+        return self._parse_workflow_run(items[0])
+
+    def failed_run_logs(self, run_id: int) -> str:
+        return self._gh("run", "view", str(run_id), "--log-failed", timeout=300)
 
     def pr_status(self, pr_url: str) -> PullRequestStatus:
         output = self._gh("pr", "view", pr_url, "--json", "state,baseRefName")

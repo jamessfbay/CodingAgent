@@ -25,6 +25,49 @@ def parser() -> argparse.ArgumentParser:
     once.add_argument(
         "--repository", help="Limit processing to one configured owner/repository",
     )
+    patch_issue = sub.add_parser(
+        "patch-issue", help="Turn one reviewed Issue into a validated candidate pull request",
+    )
+    patch_issue.add_argument("--issue", type=int, required=True, help="GitHub Issue number")
+    patch_issue.add_argument(
+        "--repository", help="Limit processing to one configured owner/repository",
+    )
+    review = sub.add_parser(
+        "review-pr", help="Run a read-only Codex review of a pull request",
+    )
+    review.add_argument("--pr", type=int, required=True, help="GitHub pull request number")
+    review.add_argument(
+        "--repository", help="Limit processing to one configured owner/repository",
+    )
+    review.add_argument(
+        "--publish", action="store_true", help="Post the generated report as a PR comment",
+    )
+    review.add_argument(
+        "--json", action="store_true", help="Print the schema-validated JSON result",
+    )
+    diagnose = sub.add_parser(
+        "diagnose-ci", help="Run a read-only diagnosis of a failed GitHub Actions run",
+    )
+    diagnose.add_argument("--run-id", type=int, help="GitHub Actions run database ID")
+    diagnose.add_argument(
+        "--pr", type=int,
+        help="PR context; if --run-id is omitted, use its latest failed run",
+    )
+    diagnose.add_argument(
+        "--repository", help="Limit processing to one configured owner/repository",
+    )
+    diagnose.add_argument(
+        "--publish", action="store_true", help="Post the diagnosis as a PR comment",
+    )
+    diagnose.add_argument(
+        "--json", action="store_true", help="Print the schema-validated JSON result",
+    )
+    update = sub.add_parser(
+        "update", help="Fast-forward a production checkout and copy tracked files",
+    )
+    update.add_argument(
+        "--repository", help="Update one configured owner/repository",
+    )
     sub.add_parser("watch", help="Continuously poll for ready issues")
     sub.add_parser("history", help="Show recent local run state")
     return result
@@ -52,6 +95,21 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "once":
             count = service.run_once(args.issue, args.repository)
             logging.info("Processed %d issue(s)", count)
+        elif args.command == "patch-issue":
+            count = service.run_once(args.issue, args.repository)
+            logging.info("Processed %d issue(s)", count)
+        elif args.command == "review-pr":
+            print(service.review_pr(
+                args.pr, args.repository, publish=args.publish, json_output=args.json,
+            ))
+        elif args.command == "diagnose-ci":
+            print(service.diagnose_ci(
+                args.run_id, args.repository, pr_number=args.pr, publish=args.publish,
+                json_output=args.json,
+            ))
+        elif args.command == "update":
+            commit = service.update_production(args.repository)
+            logging.info("Production files updated to %s", commit)
         elif args.command == "watch":
             service.watch()
         elif args.command == "history":

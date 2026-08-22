@@ -76,14 +76,14 @@ protected_paths = [
 
 # Commands are argv arrays: no shell expansion is performed.
 [[repositories.validation]]
-name = "api-tests"
-argv = ["/usr/bin/env", "-C", "api", "/var/www/workspace/CodingAgent/.venv/bin/python", "-m", "pytest", "tests", "-q"]
-timeout_seconds = 1800
-
-[[repositories.validation]]
 name = "frontend-install"
 argv = ["npm", "ci", "--prefix", "frontend"]
 timeout_seconds = 1200
+
+[[repositories.validation]]
+name = "api-tests"
+argv = ["/usr/bin/env", "-C", "api", "NODE_PATH=frontend/node_modules", "/var/www/workspace/CodingAgent/.venv/bin/python", "-m", "pytest", "tests", "-q"]
+timeout_seconds = 1800
 
 [[repositories.validation]]
 name = "frontend-unit-tests"

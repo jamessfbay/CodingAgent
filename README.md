@@ -1,6 +1,6 @@
 # JOX CodingAgent
 
-`CodingAgent` is a Python service that watches one or more GitHub repositories and turns reviewed Issues into tested pull requests by orchestrating the locally authenticated Codex CLI. It does not send production credentials to Codex. Optionally, after a PR is merged, it can update a dedicated checkout and copy tracked files into a local production directory without building or restarting services.
+`CodingAgent` is a Python service that orchestrates the locally authenticated Codex CLI for three bounded engineering workflows: read-only PR review, read-only CI failure diagnosis, and reviewed Issue-to-PR implementation. It does not send production credentials to Codex. Optionally, after a PR is merged, it can update a dedicated checkout and copy tracked files into a local production directory without building or restarting services.
 
 ## Flow
 
@@ -188,12 +188,53 @@ operations are required.
 ```bash
 .venv/bin/coding-agent doctor
 .venv/bin/coding-agent bootstrap
+.venv/bin/coding-agent review-pr --repository unsungb/base-all --pr 123
+.venv/bin/coding-agent diagnose-ci --repository unsungb/base-all --run-id 456
+.venv/bin/coding-agent diagnose-ci --repository unsungb/base-all --pr 123
+.venv/bin/coding-agent patch-issue --repository unsungb/base-all --issue 123
 .venv/bin/coding-agent once
 .venv/bin/coding-agent once --issue 123
 .venv/bin/coding-agent once --repository unsungb/base-all
 .venv/bin/coding-agent once --repository unsungb/base-all --issue 123
+.venv/bin/coding-agent update --repository unsungb/base-all
 .venv/bin/coding-agent watch
 ```
+
+### Phase-one workflows
+
+`review-pr` fetches PR metadata and its diff, then runs Codex with a read-only
+sandbox and a JSON Schema for stable review results. It prints a Markdown report
+without changing GitHub state. Add `--json` for machine-readable output, or
+`--publish` to post the Markdown report as a PR comment:
+
+```bash
+.venv/bin/coding-agent review-pr --repository unsungb/base-all --pr 123 --publish
+.venv/bin/coding-agent review-pr --repository unsungb/base-all --pr 123 --json
+```
+
+`diagnose-ci` fetches failed GitHub Actions logs and classifies the failure as a
+code, test, flaky, infrastructure, or unknown failure. Supply a run ID directly,
+or supply a PR number to select the latest failed run for its head commit. Publishing
+requires a PR target:
+
+```bash
+.venv/bin/coding-agent diagnose-ci --repository unsungb/base-all --run-id 456
+.venv/bin/coding-agent diagnose-ci --repository unsungb/base-all --pr 123 --publish
+.venv/bin/coding-agent diagnose-ci --repository unsungb/base-all --pr 123 --json
+```
+
+Both analysis commands force `read-only` and `never` approval settings regardless
+of the write-capable Issue configuration. PR data and CI logs are treated as
+untrusted input and are size-bounded before being sent to Codex.
+
+`patch-issue` is the explicit one-Issue entry point for the existing candidate
+patch workflow. It requires the same maintainer review, author allowlist, protected
+path checks, validation commands, and isolated worktree controls as `once --issue`.
+
+For the configured `base-all` repository, the same manual production update is
+available through `./update.sh`. It clones the dedicated production checkout when
+missing, fast-forwards its configured base branch, and copies only tracked files
+to the production path.
 
 `bootstrap` creates or updates the four workflow labels in every configured repository. An Issue is processed only after a maintainer adds `agent:ready`. On failure it receives `agent:failed`; fix the service problem and re-add `agent:ready` to retry. With multiple repositories, `--issue` must be paired with `--repository` because Issue numbers are repository-local.
 

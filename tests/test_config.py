@@ -16,10 +16,12 @@ def test_load_example_config():
     assert settings.automation.agent_icon == "🤖"
     assert settings.automation.max_issue_images == 4
     assert settings.automation.max_issue_image_bytes == 15_000_000
-    assert settings.validation[0].argv == (
+    assert settings.validation[0].argv == ("npm", "ci", "--prefix", "frontend")
+    assert settings.validation[1].argv == (
         "/usr/bin/env",
         "-C",
         "api",
+        "NODE_PATH=frontend/node_modules",
         "/var/www/workspace/CodingAgent/.venv/bin/python",
         "-m",
         "pytest",
